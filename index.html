@@ -145,60 +145,8 @@ function addCarrito(id){let p=productos.find(x=>x.id===id);if(!p||p.stock<=0){mo
 function quitCarrito(i){carrito.splice(i,1);ventaLista=false;dibujarCarrito()}
 function dibujarCarrito(){let l='',t=0;carrito.forEach((x,i)=>{l+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #eee"><span><img src="${x.imgs[0]}" width="40" style="border-radius:6px"> ${x.nom} ${formatPrecio(x.prec)}</span><button class="btn-danger" onclick="quitCarrito(${i})">X</button></div>`;t+=x.prec});$('listaCarrito').innerHTML=l||'Carrito Vacío';$('total').innerText=formatPrecio(t);$('cartCount').innerText=carrito.length;$('btnWsp').disabled=!ventaLista}
 function vender(){if(!carrito.length){mostrarAviso('Carrito vacío','error');return}let cli=$('cliente').value.trim();if(!cli){mostrarAviso('Falta nombre','error');return}ventas.push({id:Date.now(),num:contador++,fecha:new Date().toLocaleDateString('es-PE'),hora:new Date().toLocaleTimeString('es-PE'),cliente:cli,total:carrito.reduce((a,b)=>a+b.prec,0),detalle:carrito.map(d=>({nom:d.nom,prec:d.prec}))});carrito.forEach(x=>{let p=productos.find(z=>z.id==x.id);if(p&&p.stock>0)p.stock--});guardarDatos();mostrarAviso('Venta guardada');ventaLista=true;dibujarTodo()}
-function enviarWsp(){if(!ventaLista){mostrarAviso('Primero guarda','error');return}let n=getNumeroTienda();if(!n){mostrarAviso('Primero configura tu número en Admin > Config','vent.preventDefault();validarLoginAdmin()"><input type="password" id="passAdmin" placeholder="Contraseña" required style="margin-top:15px"><button class="btn-ingresar" type="submit">Ingresar</button></form></div></div>
-<script>
-let contador=1,productos=[],carrito=[],ventas=[],ventaLista=false,fotosTemp=[],slidePos={},categoriaActiva='Todas',longPressTimer=null,toquesLogo=0;
-const CLAVE_ADMIN="administrador";
-const $=id=>document.getElementById(id);
-
-// --- NÚMERO DE LA TIENDA GUARDADO EN EL CELULAR ---
-function getNumeroTienda(){return localStorage.getItem('miTienda_numeroWsp')||''}
-function mostrarNumeroActual(){let n=getNumeroTienda();$('numeroActual').innerText=n?'+51 '+n:'Sin configurar';if($('numeroTienda'))$('numeroTienda').value=n}
-function guardarNumeroTienda(){let n=$('numeroTienda').value.replace(/\D/g,'');if(n.startsWith('51'))n=n.slice(2);if(n.length!==9){mostrarAviso('Pon un número de 9 dígitos, ej: 987654321','error');return}localStorage.setItem('miTienda_numeroWsp',n);mostrarNumeroActual();mostrarAviso('Número guardado! Ya los pedidos van a llegar ahí')}
-function probarNumeroTienda(){let n=getNumeroTienda();if(!n){mostrarAviso('Primero guarda tu número','error');show('config');return}window.open(`https://wa.me/51${n}?text=${encodeURIComponent('Hola, prueba de LA CASITA. Si te llegó este mensaje, tu número ya está bien configurado ✅')}`,'_blank')}
-
-function mostrarAviso(t,type='ok'){let d=document.createElement('div');d.className=`notificacion ${type}`;d.innerText=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2500)}
-function confirmar(t,cb){$('confirmText').innerText=t;$('modalConfirm').classList.add('active');$('btnConfirmSi').onclick=()=>{cb();cerrarConfirm()}}
-function cerrarConfirm(){$('modalConfirm').classList.remove('active')}
-function formatPrecio(n){return 'S/ '+Math.round(n).toLocaleString('es-PE')}
-function cargarDatos(){productos=JSON.parse(localStorage.getItem('miTienda_productos')||'[]');ventas=JSON.parse(localStorage.getItem('miTienda_ventas')||'[]');contador=parseInt(localStorage.getItem('miTienda_contador')||'1');if(localStorage.getItem('esAdmin_LA_CASITA')==='true')mostrarBotonesAdmin();mostrarNumeroActual()}
-function guardarDatos(){localStorage.setItem('miTienda_productos',JSON.stringify(productos));localStorage.setItem('miTienda_ventas',JSON.stringify(ventas));localStorage.setItem('miTienda_contador',contador)}
-function tocarLogoAdmin(){toquesLogo++;setTimeout(()=>toquesLogo=0,2000);if(toquesLogo>=3){toquesLogo=0;$('modalLoginAdmin').classList.add('active')}}
-function cerrarLoginAdmin(){$('modalLoginAdmin').classList.remove('active')}
-function validarLoginAdmin(){if($('passAdmin').value===CLAVE_ADMIN){localStorage.setItem('esAdmin_LA_CASITA','true');mostrarBotonesAdmin();mostrarAviso('Modo Admin activado');cerrarLoginAdmin();$('passAdmin').value=''}else{mostrarAviso('Clave incorrecta','error');$('passAdmin').value=''} }
-function mostrarBotonesAdmin(){document.querySelectorAll('.admin-btn').forEach(b=>b.style.display='inline-block')}
-function salirAdmin(){localStorage.removeItem('esAdmin_LA_CASITA');document.querySelectorAll('.admin-btn').forEach(b=>b.style.display='none');show('tienda');mostrarAviso('Saliste del modo admin')}
-function getCategorias(){let c=JSON.parse(localStorage.getItem('miTienda_categorias'));if(!c){c=['Accesorios','Muebles','Camas','Ropa','Repuestos','Herramientas'];localStorage.setItem('miTienda_categorias',JSON.stringify(c))}return c}
-function guardarCategorias(c){localStorage.setItem('miTienda_categorias',JSON.stringify(c))}
-function dibujarDropdownCategorias(){let cats=getCategorias();$('dropdownList').innerHTML=`<div class="dropdown-item" onclick="seleccionarCategoria('')">Seleccionar Categoría *</div>`+cats.map(c=>`<div class="dropdown-item" onclick="seleccionarCategoria('${c}')">${c}</div>`).join('')}
-function toggleDropdown(){$('dropdownList').classList.toggle('active')}
-document.addEventListener('click',e=>{if(!e.target.closest('.dropdown'))$('dropdownList').classList.remove('active')});
-function seleccionarCategoria(cat){$('categoria').value=cat;$('dropdownSelected').innerHTML=(cat||'Seleccionar Categoría *')+' <span>▼</span>';$('dropdownList').classList.remove('active')}
-function crearCategoria(){let n=prompt("Nombre nueva categoría:");if(!n)return;n=n.trim();if(!n)return;let cats=getCategorias();if(cats.includes(n)){mostrarAviso('Ya existe','error');return}cats.push(n);guardarCategorias(cats);dibujarDropdownCategorias();dibujarFiltrosCategorias();mostrarAviso('Categoría creada')}
-$('inputFoto').addEventListener('change',e=>{[...e.target.files].forEach(f=>{let r=new FileReader();r.onload=ev=>{fotosTemp.push(ev.target.result);dibujarPreview()};r.readAsDataURL(f)});e.target.value=''});
-function dibujarPreview(){$('preview').innerHTML=fotosTemp.map((f,i)=>`<div class="preview-item"><img src="${f}"><div class="x" onclick="borrarFotoTemp(${i})">✕</div></div>`).join('')}
-function borrarFotoTemp(i){fotosTemp.splice(i,1);dibujarPreview()}
-function show(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');if(id==='config')mostrarNumeroActual();dibujarTodo()}
-function dibujarTodo(){dibujarDropdownCategorias();dibujarFiltrosCategorias();dibujarProductos();dibujarCatalogo();dibujarCarrito();dibujarVentas()}
-function dibujarFiltrosCategorias(){let cats=getCategorias();$('filtrosCategorias').innerHTML=['Todas',...cats].map(c=>`<button class="btn-cat ${categoriaActiva===c?'active':''}" onclick="filtrarCat('${c}')">${c}</button>`).join('')}
-function filtrarCat(c){categoriaActiva=c;dibujarFiltrosCategorias();dibujarCatalogo()}
-function guardarProd(){let n=$('nom').value.trim(),p=parseFloat($('prec').value),c=$('categoria').value;if(!n||!p||!c){mostrarAviso('Falta nombre, precio o categoría','error');return}productos.push({id:Date.now(),nom:n,prec:p,categoria:c,stock:parseInt($('stock').value)||0,desc:$('desc').value,imgs:fotosTemp.length?fotosTemp:['https://via.placeholder.com/280x200?text=Sin+Imagen']});guardarDatos();mostrarAviso('Producto guardado');['nom','prec','stock','desc'].forEach(i=>$(i).value='');$('categoria').value='';$('dropdownSelected').innerHTML='Seleccionar Categoría * <span>▼</span>';fotosTemp=[];dibujarPreview();dibujarTodo()}
-function dibujarProductos(){let t='<tr><th>Foto</th><th>Nombre</th><th>Precio</th><th>Stock</th><th></th></tr>';productos.forEach(x=>{t+=`<tr><td><img src="${x.imgs[0]}" width="50" height="50" style="object-fit:cover;border-radius:6px"></td><td>${x.nom}</td><td>${formatPrecio(x.prec)}</td><td>${x.stock}</td><td><button class="btn-danger" onclick="borrarProd(${x.id})">X</button></td></tr>`});$('tablaProd').innerHTML=t}
-function borrarProd(id){confirmar('¿Eliminar producto?',()=>{productos=productos.filter(p=>p.id!==id);guardarDatos();dibujarTodo();mostrarAviso('Eliminado')})}
-function dibujarCatalogo(){let f=categoriaActiva==='Todas'?productos:productos.filter(p=>p.categoria===categoriaActiva);let h='';f.forEach(x=>{let slides=x.imgs.map(img=>`<div class="carrusel-slide"><img src="${img}"></div>`).join('');let arrows=x.imgs.length>1?`<button class="carrusel-arrow prev" onclick="mover(${x.id},-1)">‹</button><button class="carrusel-arrow next" onclick="mover(${x.id},1)">›</button>`:'',dots=x.imgs.length>1?`<div class="carrusel-dots" id="dots-${x.id}">${x.imgs.map((_,i)=>`<span class="carrusel-dot ${i===0?'active':''}"></span>`).join('')}</div>`:'';
-h+=`<div class="producto"><div class="carrusel-wrapper" id="wrap-${x.id}"><div class="carrusel-track" id="track-${x.id}">${slides}</div>${arrows}</div>${dots}<h3 style="margin-top:6px">${x.nom}</h3><p style="font-size:13px;color:#666;min-height:24px">${x.desc||''}</p><div class="precio">${formatPrecio(x.prec)}</div><p style="font-size:12px">Stock: ${x.stock}</p><button class="btn" style="width:100%;margin-top:8px" onclick="addCarrito(${x.id})">Agregar</button></div>`});$('catalogo').innerHTML=h||'<p style="text-align:center;padding:20px">SIN PRODUCTOS</p>';f.forEach(x=>{if(x.imgs.length>1)agregarSwipe(x.id)})}
-function mover(id,dir){let total=productos.find(p=>p.id==id).imgs.length;slidePos[id]=(slidePos[id]||0)+dir;if(slidePos[id]<0)slidePos[id]=total-1;if(slidePos[id]>=total)slidePos[id]=0;$(`track-${id}`).style.transform=`translateX(-${slidePos[id]*100}%)`;let d=$(`dots-${id}`);if(d)[...d.children].forEach((dot,i)=>dot.className='carrusel-dot '+(i===slidePos[id]?'active':''))}
-function agregarSwipe(id){let w=$(`wrap-${id}`);if(!w)return;let sx=0;w.addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});w.addEventListener('touchend',e=>{let ex=e.changedTouches[0].clientX;if(sx-ex>50)mover(id,1);if(ex-sx>50)mover(id,-1)},{passive:true})}
-function addCarrito(id){let p=productos.find(x=>x.id===id);if(!p||p.stock<=0){mostrarAviso('Sin stock','error');return}carrito.push(p);ventaLista=false;dibujarCarrito();mostrarAviso('Agregado')}
-function quitCarrito(i){carrito.splice(i,1);ventaLista=false;dibujarCarrito()}
-function dibujarCarrito(){let l='',t=0;carrito.forEach((x,i)=>{l+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #eee"><span><img src="${x.imgs[0]}" width="40" style="border-radius:6px"> ${x.nom} ${formatPrecio(x.prec)}</span><button class="btn-danger" onclick="quitCarrito(${i})">X</button></div>`;t+=x.prec});$('listaCarrito').innerHTML=l||'Carrito Vacío';$('total').innerText=formatPrecio(t);$('cartCount').innerText=carrito.length;$('btnWsp').disabled=!ventaLista}
-
-// --- VENDER ARREGLADO ---
-function vender(){if(!carrito.length){mostrarAviso('Carrito vacío','error');return}let cli=$('cliente').value.trim(),ent=$('entrega').value.trim(),pag=$('pago').value;if(!cli||!ent){mostrarAviso('Falta nombre y dirección o RECOJO','error');return}ventas.push({id:Date.now(),num:contador++,fecha:new Date().toLocaleDateString('es-PE'),hora:new Date().toLocaleTimeString('es-PE'),cliente:cli,entrega:ent,pago:pag,telefono:'',total:carrito.reduce((a,b)=>a+b.prec,0),detalle:carrito.map(d=>({nom:d.nom,prec:d.prec}))});carrito.forEach(x=>{let p=productos.find(z=>z.id==x.id);if(p&&p.stock>0)p.stock--});guardarDatos();mostrarAviso('Venta guardada');ventaLista=true;dibujarTodo()}
-
-// --- ENVIAR A TU WHATSAPP CONFIGURADO EN ADMIN ---
-function enviarWsp(){if(!ventaLista){mostrarAviso('Primero guarda','error');return}let n=getNumeroTienda();if(!n){mostrarAviso('Primero configura tu número en Admin > Config','error');show('config');return}let cli=$('cliente').value||'Cliente';let ent=$('entrega').value||'RECOJO';let pag=$('pago').value||'Yape';let tot=carrito.reduce((a,b)=>a+b.prec,0);let msg=`Hola LA CASITA, nuevo pedido!%0A%0ACliente: ${encodeURIComponent(cli)}%0AEntrega: ${encodeURIComponent(ent)}%0APago: ${encodeURIComponent(pag)}%0A%0APedido:%0A`+carrito.map(x=>`- ${encodeURIComponent(x.nom)} ${encodeURIComponent(formatPrecio(x.prec))}`).join('%0A')+`%0ATotal: ${encodeURIComponent(formatPrecio(tot))}`;window.open(`https://wa.me/51${n}?text=${msg}`,'_blank');carrito=[];ventaLista=false;['cliente','entrega'].forEach(i=>$(i).value='');dibujarTodo()}
-function dibujarVentas(){$('tablaVentas').querySelector('tbody').innerHTML=ventas.length===0?`<tr><td colspan="4" style="text-align:center;color:#999">Sin ventas</td></tr>`:ventas.map((x,i)=>`<tr onmousedown="iniciarLongPressVenta(${i})" onmouseup="cancelarLongPressVenta()" ontouchstart="iniciarLongPressVenta(${i})" ontouchend="cancelarLongPressVenta()"><td>${x.fecha}<br><small>${x.hora}</small></td><td>${x.cliente}</td><td>${x.entrega||x.telefono||''}<br><small>${x.pago||''}</small></td><td>${formatPrecio(x.total)}</td></tr>`).join('')}
+function enviarWsp(){if(!ventaLista){mostrarAviso('Primero guarda','error');return}let n=getNumeroTienda();if(!n){mostrarAviso('Primero configura tu número en Admin > Config','error');show('config');return}let cli=$('cliente').value||'Cliente';let tot=carrito.reduce((a,b)=>a+b.prec,0);let msg=`Hola LA CASITA, nuevo pedido!%0A%0ACliente: ${encodeURIComponent(cli)}%0A%0APedido:%0A`+carrito.map(x=>`- ${encodeURIComponent(x.nom)} ${encodeURIComponent(formatPrecio(x.prec))}`).join('%0A')+`%0ATotal: ${encodeURIComponent(formatPrecio(tot))}`;window.open(`https://wa.me/51${n}?text=${msg}`,'_blank');carrito=[];ventaLista=false;['cliente'].forEach(i=>$(i).value='');dibujarTodo()}
+function dibujarVentas(){$('tablaVentas').querySelector('tbody').innerHTML=ventas.length===0?`<tr><td colspan="3" style="text-align:center;color:#999">Sin ventas</td></tr>`:ventas.map((x,i)=>`<tr onmousedown="iniciarLongPressVenta(${i})" onmouseup="cancelarLongPressVenta()" ontouchstart="iniciarLongPressVenta(${i})" ontouchend="cancelarLongPressVenta()"><td>${x.fecha}<br><small>${x.hora}</small></td><td>${x.cliente}</td><td>${formatPrecio(x.total)}</td></tr>`).join('')}
 function iniciarLongPressVenta(i){cancelarLongPressVenta();longPressTimer=setTimeout(()=>mostrarTicket(i),700)}
 function cancelarLongPressVenta(){clearTimeout(longPressTimer)}
 function mostrarTicket(i){
@@ -210,8 +158,6 @@ function mostrarTicket(i){
     <div>Ticket 000${v.num}</div>
     <div>${v.fecha} ${v.hora}</div>
     <div>Cliente: ${v.cliente}</div>
-    <div>Entrega: ${v.entrega||''}</div>
-    <div>Pago: ${v.pago||''}</div>
     <div class="ticket-line"></div>
     ${det}
     <div class="ticket-line"></div>
@@ -223,7 +169,7 @@ function mostrarTicket(i){
   $('modalTicket').classList.add('active')
 }
 function cerrarTicket(){$('modalTicket').classList.remove('active')}
-function exportarExcel(){if(!ventas.length){mostrarAviso('No hay ventas','error');return}let csv='N°,Fecha,Hora,Cliente,Entrega,Pago,Total\n'+ventas.map(v=>`000${v.num},${v.fecha},${v.hora},"${v.cliente}","${(v.entrega||'').replace(/"/g,'')}","${v.pago||''}",${v.total}`).join('\n');let blob=new Blob(['\ufeff'+csv],{type:'text/csv'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ventas_la_casita.csv';a.click()}
+function exportarExcel(){if(!ventas.length){mostrarAviso('No hay ventas','error');return}let csv='N°,Fecha,Hora,Cliente,Total\n'+ventas.map(v=>`000${v.num},${v.fecha},${v.hora},"${v.cliente}",${v.total}`).join('\n');let blob=new Blob(['\ufeff'+csv],{type:'text/csv'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ventas_la_casita.csv';a.click()}
 function borrarTodo(){if(!ventas.length){mostrarAviso('No hay nada','error');return}confirmar('¿Borrar todas las ventas?',()=>{ventas=[];guardarDatos();dibujarTodo();mostrarAviso('Borrado')})}
 cargarDatos();dibujarTodo();
 </script>
