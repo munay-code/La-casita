@@ -61,7 +61,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}table th{background:#f
 <header>
 <div style="display:flex;align-items:center;gap:12px">
 <div class="logo-area" onclick="tocarLogoAdmin()"><div class="logo-emoji">🏠</div></div>
-<div class="titulo"><div class="titulo-principal">LA CASITA</div><div class="titulo-sub">🛒 Tu tiendita de confianza</div></div>
+<div class="titulo"><div class="titulo-principal">LA CASITA</div><div class="titulo-sub">Tu tiendita de confianza</div></div>
 </div>
 <nav>
 <button onclick="show('tienda')">Tienda</button>
@@ -73,7 +73,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}table th{background:#f
 </nav>
 </header>
 <div class="container">
-<div id="tienda" class="section active"><h2>Catálogo</h2><div id="filtrosCategorias" style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"></div><div id="catalogo" class="grid"></div></div>
+<div id="tienda" class="section active"><h2>Catálogo</h2><p id="estadoNube" style="font-size:13px;color:#666">Conectando a la nube...</p><div id="filtrosCategorias" style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"></div><div id="catalogo" class="grid"></div></div>
 <div id="productos" class="section"><h2>Productos</h2>
 <div class="card"><h3>Agregar Producto</h3>
 <input id="nom" placeholder="Nombre *"><input id="prec" type="number" step="0.01" placeholder="Precio *"><input id="stock" type="number" placeholder="Stock">
@@ -89,7 +89,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}table th{background:#f
 <div id="ventas" class="section"><h2>Ventas</h2><button class="btn btn-excel" onclick="exportarExcel()">Excel</button><button class="btn btn-danger" onclick="borrarTodo()">Borrar todo</button><div class="card"><table id="tablaVentas"><thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th></tr></thead><tbody></tbody></table></div></div>
 <div id="config" class="section"><h2>Configuración</h2>
 <div class="card"><h3>📱 ¿A qué WhatsApp llegan los pedidos?</h3>
-<p style="font-size:13px;color:#666;margin:8px 0">Este número NO se ve en la tienda. Solo lo ves tú como admin. Los pedidos del botón 2 van a llegar a este número.</p>
+<p style="font-size:13px;color:#666;margin:8px 0">Este número NO se ve en la tienda. Solo lo ves tú como admin.</p>
 <p style="font-size:13px;color:#666">Número actual guardado: <b id="numeroActual" style="color:#2c7be5">Sin configurar</b></p>
 <input id="numeroTienda" type="tel" placeholder="N° WhatsApp">
 <button class="btn btn-add" onclick="guardarNumeroTienda()">Guardar número</button>
@@ -101,32 +101,44 @@ table{width:100%;border-collapse:collapse;margin-top:10px}table th{background:#f
 <div id="modalTicket" class="modal-ticket" onclick="cerrarTicket()"><div class="ticket-content" onclick="event.stopPropagation()"><div id="ticketBody"></div><button class="btn-imprimir" onclick="window.print()">IMPRIMIR</button></div></div>
 <div id="modalConfirm" class="modal-confirm" onclick="cerrarConfirm()"><div class="modal-confirm-box" onclick="event.stopPropagation()"><p id="confirmText"></p><br><button class="btn btn-danger" id="btnConfirmSi">Sí</button> <button class="btn" onclick="cerrarConfirm()">No</button></div></div>
 <div id="modalLoginAdmin" class="modal-login" onclick="cerrarLoginAdmin()"><div class="login-box" onclick="event.stopPropagation()"><h2>Admin</h2><form onsubmit="event.preventDefault();validarLoginAdmin()"><input type="password" id="passAdmin" placeholder="Contraseña" required style="margin-top:15px"><button class="btn-ingresar" type="submit">Ingresar</button></form></div></div>
-<script>
-let contador=1,productos=[],carrito=[],ventas=[],ventaLista=false,fotosTemp=[],slidePos={},categoriaActiva='Todas',longPressTimer=null,toquesLogo=0;
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyBgwgxuJxpuboi5l3dBRXfpFIjYRg8Lj1Q",
+  authDomain: "la-casita-web-6dea3.firebaseapp.com",
+  projectId: "la-casita-web-6dea3",
+  storageBucket: "la-casita-web-6dea3.firebasestorage.app",
+  messagingSenderId: "798412075502",
+  appId: "1:798412075502:web:121178259c0103a8549eff",
+  measurementId: "G-TFF3H8TBH6"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+let contador=1,productos=[],carrito=[],ventas=[],ventaLista=false,fotosTemp=[],slidePos={},categoriaActiva='Todas',longPressTimer=null,toquesLogo=0,numeroWsp='',categoriasList=['Accesorios','Muebles','Camas','Ropa','Repuestos','Herramientas'];
 const CLAVE_ADMIN="administrador";
 const $=id=>document.getElementById(id);
-function getNumeroTienda(){return localStorage.getItem('miTienda_numeroWsp')||''}
-function mostrarNumeroActual(){let n=getNumeroTienda();$('numeroActual').innerText=n?'+51 '+n:'Sin configurar';if($('numeroTienda'))$('numeroTienda').value=n}
-function guardarNumeroTienda(){let n=$('numeroTienda').value.replace(/\D/g,'');if(n.startsWith('51'))n=n.slice(2);if(n.length!==9){mostrarAviso('Pon un número de 9 dígitos, ej: 987654321','error');return}localStorage.setItem('miTienda_numeroWsp',n);mostrarNumeroActual();mostrarAviso('Número guardado! Ya los pedidos van a llegar ahí')}
+function getNumeroTienda(){return numeroWsp}
+function mostrarNumeroActual(){let n=numeroWsp;$('numeroActual').innerText=n?'+51 '+n:'Sin configurar';if($('numeroTienda'))$('numeroTienda').value=n}
+async function guardarNumeroTienda(){let n=$('numeroTienda').value.replace(/\D/g,'');if(n.startsWith('51'))n=n.slice(2);if(n.length!==9){mostrarAviso('Pon un número de 9 dígitos, ej: 987654321','error');return}numeroWsp=n;await setDoc(doc(db,"config","tienda"),{numeroWsp:n},{merge:true});mostrarNumeroActual();mostrarAviso('Número guardado! Ya los pedidos van a llegar ahí')}
 function probarNumeroTienda(){let n=getNumeroTienda();if(!n){mostrarAviso('Primero guarda tu número','error');show('config');return}window.open(`https://wa.me/51${n}?text=${encodeURIComponent('Hola, prueba de LA CASITA. Si te llegó este mensaje, tu número ya está bien configurado ✅')}`,'_blank')}
 function mostrarAviso(t,type='ok'){let d=document.createElement('div');d.className=`notificacion ${type}`;d.innerText=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2500)}
 function confirmar(t,cb){$('confirmText').innerText=t;$('modalConfirm').classList.add('active');$('btnConfirmSi').onclick=()=>{cb();cerrarConfirm()}}
 function cerrarConfirm(){$('modalConfirm').classList.remove('active')}
 function formatPrecio(n){return 'S/ '+Math.round(n).toLocaleString('es-PE')}
-function cargarDatos(){productos=JSON.parse(localStorage.getItem('miTienda_productos')||'[]');ventas=JSON.parse(localStorage.getItem('miTienda_ventas')||'[]');contador=parseInt(localStorage.getItem('miTienda_contador')||'1');localStorage.removeItem('esAdmin_LA_CASITA');document.querySelectorAll('.admin-btn').forEach(b=>b.classList.remove('mostrar'));mostrarNumeroActual()}
-function guardarDatos(){localStorage.setItem('miTienda_productos',JSON.stringify(productos));localStorage.setItem('miTienda_ventas',JSON.stringify(ventas));localStorage.setItem('miTienda_contador',contador)}
 function tocarLogoAdmin(){toquesLogo++;setTimeout(()=>toquesLogo=0,2000);if(toquesLogo>=3){toquesLogo=0;$('modalLoginAdmin').classList.add('active')}}
 function cerrarLoginAdmin(){$('modalLoginAdmin').classList.remove('active')}
 function validarLoginAdmin(){if($('passAdmin').value===CLAVE_ADMIN){localStorage.setItem('esAdmin_LA_CASITA','true');mostrarBotonesAdmin();mostrarAviso('Modo Admin activado');cerrarLoginAdmin();$('passAdmin').value=''}else{mostrarAviso('Clave incorrecta','error');$('passAdmin').value=''} }
 function mostrarBotonesAdmin(){document.querySelectorAll('.admin-btn').forEach(b=>b.classList.add('mostrar'))}
 function salirAdmin(){localStorage.removeItem('esAdmin_LA_CASITA');document.querySelectorAll('.admin-btn').forEach(b=>b.classList.remove('mostrar'));show('tienda');mostrarAviso('Saliste del modo admin - Ahora eres Cliente')}
-function getCategorias(){let c=JSON.parse(localStorage.getItem('miTienda_categorias'));if(!c){c=['Accesorios','Muebles','Camas','Ropa','Repuestos','Herramientas'];localStorage.setItem('miTienda_categorias',JSON.stringify(c))}return c}
-function guardarCategorias(c){localStorage.setItem('miTienda_categorias',JSON.stringify(c))}
+function getCategorias(){return categoriasList}
+async function guardarCategorias(c){categoriasList=c;await setDoc(doc(db,"config","categorias"),{lista:c},{merge:true})}
 function dibujarDropdownCategorias(){let cats=getCategorias();$('dropdownList').innerHTML=`<div class="dropdown-item" onclick="seleccionarCategoria('')">Seleccionar Categoría *</div>`+cats.map(c=>`<div class="dropdown-item" onclick="seleccionarCategoria('${c}')">${c}</div>`).join('')}
 function toggleDropdown(){$('dropdownList').classList.toggle('active')}
 document.addEventListener('click',e=>{if(!e.target.closest('.dropdown'))$('dropdownList').classList.remove('active')});
 function seleccionarCategoria(cat){$('categoria').value=cat;$('dropdownSelected').innerHTML=(cat||'Seleccionar Categoría *')+' <span>▼</span>';$('dropdownList').classList.remove('active')}
-function crearCategoria(){let n=prompt("Nombre nueva categoría:");if(!n)return;n=n.trim();if(!n)return;let cats=getCategorias();if(cats.includes(n)){mostrarAviso('Ya existe','error');return}cats.push(n);guardarCategorias(cats);dibujarDropdownCategorias();dibujarFiltrosCategorias();mostrarAviso('Categoría creada')}
+async function crearCategoria(){let n=prompt("Nombre nueva categoría:");if(!n)return;n=n.trim();if(!n)return;let cats=getCategorias();if(cats.includes(n)){mostrarAviso('Ya existe','error');return}cats.push(n);await guardarCategorias(cats);dibujarDropdownCategorias();dibujarFiltrosCategorias();mostrarAviso('Categoría creada')}
 $('inputFoto').addEventListener('change',e=>{[...e.target.files].forEach(f=>{let r=new FileReader();r.onload=ev=>{fotosTemp.push(ev.target.result);dibujarPreview()};r.readAsDataURL(f)});e.target.value=''});
 function dibujarPreview(){$('preview').innerHTML=fotosTemp.map((f,i)=>`<div class="preview-item"><img src="${f}"><div class="x" onclick="borrarFotoTemp(${i})">✕</div></div>`).join('')}
 function borrarFotoTemp(i){fotosTemp.splice(i,1);dibujarPreview()}
@@ -134,17 +146,17 @@ function show(id){document.querySelectorAll('.section').forEach(s=>s.classList.r
 function dibujarTodo(){dibujarDropdownCategorias();dibujarFiltrosCategorias();dibujarProductos();dibujarCatalogo();dibujarCarrito();dibujarVentas()}
 function dibujarFiltrosCategorias(){let cats=getCategorias();$('filtrosCategorias').innerHTML=['Todas',...cats].map(c=>`<button class="btn-cat ${categoriaActiva===c?'active':''}" onclick="filtrarCat('${c}')">${c}</button>`).join('')}
 function filtrarCat(c){categoriaActiva=c;dibujarFiltrosCategorias();dibujarCatalogo()}
-function guardarProd(){let n=$('nom').value.trim(),p=parseFloat($('prec').value),c=$('categoria').value;if(!n||!p||!c){mostrarAviso('Falta nombre, precio o categoría','error');return}productos.push({id:Date.now(),nom:n,prec:p,categoria:c,stock:parseInt($('stock').value)||0,desc:$('desc').value,imgs:fotosTemp.length?fotosTemp:['https://via.placeholder.com/280x200?text=Sin+Imagen']});guardarDatos();mostrarAviso('Producto guardado');['nom','prec','stock','desc'].forEach(i=>$(i).value='');$('categoria').value='';$('dropdownSelected').innerHTML='Seleccionar Categoría * <span>▼</span>';fotosTemp=[];dibujarPreview();dibujarTodo()}
-function dibujarProductos(){let t='<tr><th>Foto</th><th>Nombre</th><th>Precio</th><th>Stock</th><th></th></tr>';productos.forEach(x=>{t+=`<tr><td><img src="${x.imgs[0]}" width="50" height="50" style="object-fit:cover;border-radius:6px"></td><td>${x.nom}</td><td>${formatPrecio(x.prec)}</td><td>${x.stock}</td><td><button class="btn-danger" onclick="borrarProd(${x.id})">X</button></td></tr>`});$('tablaProd').innerHTML=t}
-function borrarProd(id){confirmar('¿Eliminar producto?',()=>{productos=productos.filter(p=>p.id!==id);guardarDatos();dibujarTodo();mostrarAviso('Eliminado')})}
-function dibujarCatalogo(){let f=categoriaActiva==='Todas'?productos:productos.filter(p=>p.categoria===categoriaActiva);let h='';f.forEach(x=>{let slides=x.imgs.map(img=>`<div class="carrusel-slide"><img src="${img}"></div>`).join('');let arrows=x.imgs.length>1?`<button class="carrusel-arrow prev" onclick="mover(${x.id},-1)">‹</button><button class="carrusel-arrow next" onclick="mover(${x.id},1)">›</button>`:'',dots=x.imgs.length>1?`<div class="carrusel-dots" id="dots-${x.id}">${x.imgs.map((_,i)=>`<span class="carrusel-dot ${i===0?'active':''}"></span>`).join('')}</div>`:'';
-h+=`<div class="producto"><div class="carrusel-wrapper" id="wrap-${x.id}"><div class="carrusel-track" id="track-${x.id}">${slides}</div>${arrows}</div>${dots}<h3 style="margin-top:6px">${x.nom}</h3><p style="font-size:13px;color:#666;min-height:24px">${x.desc||''}</p><div class="precio">${formatPrecio(x.prec)}</div><p style="font-size:12px">Stock: ${x.stock}</p><button class="btn" style="width:100%;margin-top:8px" onclick="addCarrito(${x.id})">Agregar</button></div>`});$('catalogo').innerHTML=h||'<p style="text-align:center;padding:20px">SIN PRODUCTOS</p>';f.forEach(x=>{if(x.imgs.length>1)agregarSwipe(x.id)})}
+async function guardarProd(){let n=$('nom').value.trim(),p=parseFloat($('prec').value),c=$('categoria').value;if(!n||!p||!c){mostrarAviso('Falta nombre, precio o categoría','error');return}await addDoc(collection(db,"productos"),{nom:n,prec:p,categoria:c,stock:parseInt($('stock').value)||0,desc:$('desc').value,imgs:fotosTemp.length?fotosTemp:['https://via.placeholder.com/280x200?text=Sin+Imagen']});mostrarAviso('Producto guardado en la nube ☁️');['nom','prec','stock','desc'].forEach(i=>$(i).value='');$('categoria').value='';$('dropdownSelected').innerHTML='Seleccionar Categoría * <span>▼</span>';fotosTemp=[];dibujarPreview()}
+function dibujarProductos(){let t='<tr><th>Foto</th><th>Nombre</th><th>Precio</th><th>Stock</th><th></th></tr>';productos.forEach(x=>{t+=`<tr><td><img src="${x.imgs[0]}" width="50" height="50" style="object-fit:cover;border-radius:6px"></td><td>${x.nom}</td><td>${formatPrecio(x.prec)}</td><td>${x.stock}</td><td><button class="btn-danger" onclick="borrarProd('${x.id}')">X</button></td></tr>`});$('tablaProd').innerHTML=t}
+async function borrarProd(id){confirmar('¿Eliminar producto?',async()=>{await deleteDoc(doc(db,"productos",id));mostrarAviso('Eliminado')})}
+function dibujarCatalogo(){let f=categoriaActiva==='Todas'?productos:productos.filter(p=>p.categoria===categoriaActiva);let h='';f.forEach(x=>{let slides=x.imgs.map(img=>`<div class="carrusel-slide"><img src="${img}"></div>`).join('');let arrows=x.imgs.length>1?`<button class="carrusel-arrow prev" onclick="mover('${x.id}',-1)">‹</button><button class="carrusel-arrow next" onclick="mover('${x.id}',1)">›</button>`:'',dots=x.imgs.length>1?`<div class="carrusel-dots" id="dots-${x.id}">${x.imgs.map((_,i)=>`<span class="carrusel-dot ${i===0?'active':''}"></span>`).join('')}</div>`:'';
+h+=`<div class="producto"><div class="carrusel-wrapper" id="wrap-${x.id}"><div class="carrusel-track" id="track-${x.id}">${slides}</div>${arrows}</div>${dots}<h3 style="margin-top:6px">${x.nom}</h3><p style="font-size:13px;color:#666;min-height:24px">${x.desc||''}</p><div class="precio">${formatPrecio(x.prec)}</div><p style="font-size:12px">Stock: ${x.stock}</p><button class="btn" style="width:100%;margin-top:8px" onclick="addCarrito('${x.id}')">Agregar</button></div>`});$('catalogo').innerHTML=h||'<p style="text-align:center;padding:20px">SIN PRODUCTOS</p>';f.forEach(x=>{if(x.imgs.length>1)agregarSwipe(x.id)})}
 function mover(id,dir){let total=productos.find(p=>p.id==id).imgs.length;slidePos[id]=(slidePos[id]||0)+dir;if(slidePos[id]<0)slidePos[id]=total-1;if(slidePos[id]>=total)slidePos[id]=0;$(`track-${id}`).style.transform=`translateX(-${slidePos[id]*100}%)`;let d=$(`dots-${id}`);if(d)[...d.children].forEach((dot,i)=>dot.className='carrusel-dot '+(i===slidePos[id]?'active':''))}
 function agregarSwipe(id){let w=$(`wrap-${id}`);if(!w)return;let sx=0;w.addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});w.addEventListener('touchend',e=>{let ex=e.changedTouches[0].clientX;if(sx-ex>50)mover(id,1);if(ex-sx>50)mover(id,-1)},{passive:true})}
 function addCarrito(id){let p=productos.find(x=>x.id===id);if(!p||p.stock<=0){mostrarAviso('Sin stock','error');return}carrito.push(p);ventaLista=false;dibujarCarrito();mostrarAviso('Agregado')}
 function quitCarrito(i){carrito.splice(i,1);ventaLista=false;dibujarCarrito()}
 function dibujarCarrito(){let l='',t=0;carrito.forEach((x,i)=>{l+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #eee"><span><img src="${x.imgs[0]}" width="40" style="border-radius:6px"> ${x.nom} ${formatPrecio(x.prec)}</span><button class="btn-danger" onclick="quitCarrito(${i})">X</button></div>`;t+=x.prec});$('listaCarrito').innerHTML=l||'Carrito Vacío';$('total').innerText=formatPrecio(t);$('cartCount').innerText=carrito.length;$('btnWsp').disabled=!ventaLista}
-function vender(){if(!carrito.length){mostrarAviso('Carrito vacío','error');return}let cli=$('cliente').value.trim();if(!cli){mostrarAviso('Falta nombre','error');return}ventas.push({id:Date.now(),num:contador++,fecha:new Date().toLocaleDateString('es-PE'),hora:new Date().toLocaleTimeString('es-PE'),cliente:cli,total:carrito.reduce((a,b)=>a+b.prec,0),detalle:carrito.map(d=>({nom:d.nom,prec:d.prec}))});carrito.forEach(x=>{let p=productos.find(z=>z.id==x.id);if(p&&p.stock>0)p.stock--});guardarDatos();mostrarAviso('Venta guardada');ventaLista=true;dibujarTodo()}
+async function vender(){if(!carrito.length){mostrarAviso('Carrito vacío','error');return}let cli=$('cliente').value.trim();if(!cli){mostrarAviso('Falta nombre','error');return}let num=contador++;await addDoc(collection(db,"ventas"),{num:num,fecha:new Date().toLocaleDateString('es-PE'),hora:new Date().toLocaleTimeString('es-PE'),cliente:cli,total:carrito.reduce((a,b)=>a+b.prec,0),detalle:carrito.map(d=>({nom:d.nom,prec:d.prec})),createdAt:Date.now()});for(let x of carrito){let p=productos.find(z=>z.id==x.id);if(p&&p.stock>0) await updateDoc(doc(db,"productos",p.id),{stock:p.stock-1}) }await setDoc(doc(db,"config","contador"),{valor:contador},{merge:true});mostrarAviso('Venta guardada en la nube ☁️');ventaLista=true;dibujarTodo()}
 function enviarWsp(){if(!ventaLista){mostrarAviso('Primero guarda','error');return}let n=getNumeroTienda();if(!n){mostrarAviso('Primero configura tu número en Admin > Config','error');show('config');return}let cli=$('cliente').value||'Cliente';let tot=carrito.reduce((a,b)=>a+b.prec,0);let msg=`Hola LA CASITA, nuevo pedido!%0A%0ACliente: ${encodeURIComponent(cli)}%0A%0APedido:%0A`+carrito.map(x=>`- ${encodeURIComponent(x.nom)} ${encodeURIComponent(formatPrecio(x.prec))}`).join('%0A')+`%0ATotal: ${encodeURIComponent(formatPrecio(tot))}`;window.open(`https://wa.me/51${n}?text=${msg}`,'_blank');carrito=[];ventaLista=false;['cliente'].forEach(i=>$(i).value='');dibujarTodo()}
 function dibujarVentas(){$('tablaVentas').querySelector('tbody').innerHTML=ventas.length===0?`<tr><td colspan="3" style="text-align:center;color:#999">Sin ventas</td></tr>`:ventas.map((x,i)=>`<tr onmousedown="iniciarLongPressVenta(${i})" onmouseup="cancelarLongPressVenta()" ontouchstart="iniciarLongPressVenta(${i})" ontouchend="cancelarLongPressVenta()"><td>${x.fecha}<br><small>${x.hora}</small></td><td>${x.cliente}</td><td>${formatPrecio(x.total)}</td></tr>`).join('')}
 function iniciarLongPressVenta(i){cancelarLongPressVenta();longPressTimer=setTimeout(()=>mostrarTicket(i),700)}
@@ -170,8 +182,14 @@ function mostrarTicket(i){
 }
 function cerrarTicket(){$('modalTicket').classList.remove('active')}
 function exportarExcel(){if(!ventas.length){mostrarAviso('No hay ventas','error');return}let csv='N°,Fecha,Hora,Cliente,Total\n'+ventas.map(v=>`000${v.num},${v.fecha},${v.hora},"${v.cliente}",${v.total}`).join('\n');let blob=new Blob(['\ufeff'+csv],{type:'text/csv'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ventas_la_casita.csv';a.click()}
-function borrarTodo(){if(!ventas.length){mostrarAviso('No hay nada','error');return}confirmar('¿Borrar todas las ventas?',()=>{ventas=[];guardarDatos();dibujarTodo();mostrarAviso('Borrado')})}
-cargarDatos();dibujarTodo();
+async function borrarTodo(){if(!ventas.length){mostrarAviso('No hay nada','error');return}confirmar('¿Borrar todas las ventas?',async()=>{for(let v of ventas) await deleteDoc(doc(db,"ventas",v.id));mostrarAviso('Borrado')})}
+onSnapshot(collection(db,"productos"),(snap)=>{productos=[];snap.forEach(d=>productos.push({id:d.id,...d.data()}));$('estadoNube').innerText='✅ Conectado a la nube - '+productos.length+' productos';dibujarTodo()});
+onSnapshot(collection(db,"ventas"),(snap)=>{ventas=[];snap.forEach(d=>ventas.push({id:d.id,...d.data()}));ventas.sort((a,b)=>b.createdAt-a.createdAt);dibujarVentas()});
+onSnapshot(doc(db,"config","tienda"),(s)=>{if(s.exists()){numeroWsp=s.data().numeroWsp||'';mostrarNumeroActual()}});
+onSnapshot(doc(db,"config","categorias"),(s)=>{if(s.exists()){categoriasList=s.data().lista;dibujarTodo()}});
+onSnapshot(doc(db,"config","contador"),(s)=>{if(s.exists()) contador=s.data().valor||1});
+window.tocarLogoAdmin=tocarLogoAdmin; window.cerrarLoginAdmin=cerrarLoginAdmin; window.validarLoginAdmin=validarLoginAdmin; window.salirAdmin=salirAdmin; window.show=show; window.toggleDropdown=toggleDropdown; window.seleccionarCategoria=seleccionarCategoria; window.crearCategoria=crearCategoria; window.borrarFotoTemp=borrarFotoTemp; window.guardarProd=guardarProd; window.borrarProd=borrarProd; window.filtrarCat=filtrarCat; window.mover=mover; window.addCarrito=addCarrito; window.quitCarrito=quitCarrito; window.vender=vender; window.enviarWsp=enviarWsp; window.guardarNumeroTienda=guardarNumeroTienda; window.probarNumeroTienda=probarNumeroTienda; window.iniciarLongPressVenta=iniciarLongPressVenta; window.cancelarLongPressVenta=cancelarLongPressVenta; window.cerrarTicket=cerrarTicket; window.cerrarConfirm=cerrarConfirm; window.exportarExcel=exportarExcel; window.borrarTodo=borrarTodo;
+dibujarTodo(); mostrarNumeroActual();
 </script>
 </body>
 </html>
